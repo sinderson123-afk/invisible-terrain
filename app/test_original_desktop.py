@@ -1,5 +1,6 @@
 """Isolated desktop-switch tests: no Wallpaper Engine or SDR process runs."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -211,6 +212,34 @@ class DesktopWallpaperTests(unittest.TestCase):
         self.assertTrue(self.new_client().status()["is_original"])
         self.new_client().restore()
         self.assertEqual(self.journal()["state"], "restored")
+
+    @patch("original_desktop.subprocess.run")
+    def test_equivalent_path_cannot_be_saved_as_its_own_backup(self, run):
+        alias = self.entry.parent / ".." / self.entry.parent.name / self.entry.name
+        self.set_selection(alias)
+        self.assertTrue(self.client.status()["is_original"])
+        with self.assertRaises(DesktopError):
+            self.client.apply()
+        self.assertFalse(self.journal_path.exists())
+        run.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows short-name regression")
+    @patch("original_desktop.subprocess.run")
+    def test_windows_short_path_is_the_same_wallpaper(self, run):
+        import ctypes
+        function = ctypes.windll.kernel32.GetShortPathNameW
+        function.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+        function.restype = ctypes.c_uint32
+        buffer = ctypes.create_unicode_buffer(32768)
+        count = function(str(self.entry.resolve()), buffer, len(buffer))
+        if not count or count >= len(buffer) or buffer.value == str(self.entry.resolve()):
+            self.skipTest("This filesystem does not provide a distinct short pathname")
+        self.set_selection(buffer.value)
+        self.assertTrue(self.client.status()["is_original"])
+        with self.assertRaises(DesktopError):
+            self.client.apply()
+        self.assertFalse(self.journal_path.exists())
+        run.assert_not_called()
 
 
 if __name__ == "__main__":

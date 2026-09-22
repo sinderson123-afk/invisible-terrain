@@ -103,7 +103,12 @@ def find_wallpaper_executable() -> Path | None:
 
 
 def _normalized(path) -> str:
-    return str(path).replace("\\", "/").rstrip("/").casefold()
+    if not str(path):
+        return ""
+    # Windows may report the same file through an 8.3 short pathname while
+    # pathlib expands our project to its long name. Resolve both sides before
+    # comparison so an already-selected terrain is never backed up as itself.
+    return str(Path(path).resolve()).replace("\\", "/").rstrip("/").casefold()
 
 
 def _read_json(path: Path) -> dict:

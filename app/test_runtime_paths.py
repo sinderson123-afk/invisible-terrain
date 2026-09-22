@@ -14,7 +14,9 @@ class RuntimePathsTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        # Windows runners may return an 8.3 TEMP path (e.g. RUNNER~1).
+        # The production API promises resolved paths, not that input spelling.
+        self.root = Path(self.temporary.name).resolve()
         self.environment = patch.dict(os.environ, {}, clear=True)
         self.environment.start()
         self.addCleanup(self.environment.stop)
@@ -32,6 +34,23 @@ class RuntimePathsTests(unittest.TestCase):
             filename = runtime_paths.state_path("radio_stations.json", create=True)
         self.assertTrue(destination.is_dir())
         self.assertFalse(filename.exists())
+
+    def test_noncanonical_override_resolves_without_creating_any_directory(self):
+        # Keep tempfile's original spelling here so Windows CI also exercises
+        # its short-path alias when present; '..' supplies a portable variant.
+        temporary_spelling = Path(self.temporary.name)
+        expected = self.root / "state"
+        for override in (temporary_spelling / "state",
+                         temporary_spelling / "unused" / ".." / "state"):
+            with self.subTest(override=str(override)), patch.dict(
+                    os.environ, {"INVISIBLE_TERRAIN_DATA_DIR": str(override)}), patch(
+                        "runtime_paths.Path.mkdir") as mkdir:
+                self.assertEqual(runtime_paths.data_dir(), expected)
+                self.assertEqual(runtime_paths.state_path("radio_stations.json"),
+                                 expected / "radio_stations.json")
+                mkdir.assert_not_called()
+        self.assertFalse(expected.exists())
+        self.assertFalse((self.root / "unused").exists())
 
     def test_windows_local_appdata(self):
         with patch("runtime_paths.sys.platform", "win32"), patch.dict(os.environ, {"LOCALAPPDATA": str(self.root)}):
@@ -67,7 +86,7 @@ class WallpaperDiscoveryTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve()
         self.environment = patch.dict(os.environ, {}, clear=True)
         self.environment.start()
         self.addCleanup(self.environment.stop)
