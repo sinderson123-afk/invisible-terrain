@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>电波地形 · Invisible Terrain</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="model.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <canvas id="terrain" aria-label="电波地形：左右是频率，纵深是过去的时间，山脊高度是相对信号强度"></canvas>
+  <header class="masthead">
+    <div class="identity"><span class="mark" aria-hidden="true">≋</span><span>电波地形<small>INVISIBLE TERRAIN / 002</small></span></div>
+    <div class="connection"><span id="status-dot" class="dot"></span><span id="status">正在连接本机接收服务</span><span class="local-tag">LOCAL ONLY</span></div>
+  </header>
+  <main class="overlay">
+    <section class="intro"><div class="eyebrow">A LANDSCAPE OF THE AIR</div><h1>不可见的山脉</h1><p>让频率有位置，让时间留下痕迹。</p></section>
+    <section class="telemetry" aria-label="当前接收数据">
+      <span class="eyebrow">CENTER FREQUENCY</span><div class="frequency"><span id="center">99.200</span><small>MHz</small></div>
+      <div class="data-row"><span>最强信号</span><strong id="peak">—</strong></div>
+      <div class="data-row"><span>已记录</span><strong id="history">0.0 s / 48 s</strong></div>
+      <div class="data-row"><span>通带宽度</span><strong id="bandwidth">2.208 MHz</strong></div>
+      <div class="data-row audio-telemetry"><span>FM 收听</span><strong id="audio-state">收听关闭</strong></div>
+    </section>
+    <div id="empty" class="empty"><span class="empty-mark">＋</span><p>等待第一束电波</p><small>启动接收后，真实信号将在这里长成山脉</small></div>
+    <div id="hover-readout" class="hover-readout" hidden></div>
+    <div class="axis-note"><span>← 低频</span><span>频率 / FREQUENCY</span><span>高频 →</span></div>
+  </main>
+  <footer class="legend"><span><i class="legend-line"></i>山高＝信号高于噪声的程度</span><span>近处＝现在 · 远处＝过去 48 秒</span><span id="source-note">未接收 · 不生成模拟地形</span></footer>
+  <button id="show-controls" class="show-controls" type="button" aria-expanded="true">收起控制台 ↘</button>
+  <section id="controls" class="controls" aria-label="电波接收控制台">
+    <div class="control-heading"><span>接收控制台</span><span id="desktop-state">原创实时绘制 · 无外部素材</span></div>
+    <div class="tuning-row">
+      <label class="frequency-field"><span>中心频率 / MHz</span><input id="frequency" type="number" min="0.5" max="6000" step="0.1" value="100" inputmode="decimal"></label>
+      <button id="down" title="降低 100 kHz" aria-label="降低 100 kHz" type="button">−</button><button id="up" title="升高 100 kHz" aria-label="升高 100 kHz" type="button">＋</button><button id="tune" type="button">调谐</button>
+      <label class="mode-field"><span>信号来源</span><select id="mode"><option value="real">真实 SDR</option><option value="demo">演示信号（合成）</option></select></label>
+      <button id="start" class="primary" type="button">启动接收</button>
+    </div>
+    <div class="options-row"><label>山脊尺度 <input id="relief" type="range" min="0.5" max="1.8" step="0.05" value="1.1"></label><button id="freeze" type="button">定格画面</button><span class="divider"></span><button id="wallpaper" type="button">设为桌面壁纸 ↗</button><button id="restore" type="button">恢复原壁纸</button></div>
+    <div class="audio-controls" role="group" aria-label="FM 广播收听">
+      <button id="audio-toggle" type="button" aria-pressed="false" disabled>开启收听</button>
+      <label class="audio-volume-field" for="audio-volume">音量 <input id="audio-volume" type="range" min="0" max="100" step="1" value="15" disabled><output id="audio-volume-value" for="audio-volume">15%</output></label>
+      <button id="audio-mute" type="button" aria-pressed="false" disabled>静音</button>
+      <span class="audio-format">FM MONO / 本机播放</span>
+      <p id="audio-note" class="audio-note" role="status">普通 FM 广播 87.5–108 MHz · 单声道 · 开机静音，点击开启收听后播放。</p>
+    </div>
+    <details id="station-directory" class="station-directory">
+      <summary>电台目录 <span id="station-count">搜台与收藏</span></summary>
+      <p id="station-service-note" class="station-note" role="status">连接后可筛选广播候选、收藏频率并命名。</p>
+      <div class="scan-controls">
+        <button id="scan-start" type="button" disabled>扫描 FM 频段</button>
+        <button id="scan-cancel" type="button" disabled>取消扫描</button>
+        <span id="scan-status" role="status">尚未扫描</span>
+        <progress id="scan-progress" max="1" value="0" aria-label="FM 扫描进度"></progress>
+      </div>
+      <p class="station-note">扫描会临时移动接收窗口、暂停声音与地形记录，结束后回到原频率。若原本正在收听，结束后恢复收听；点击停止收听可禁止恢复。结果只是广播候选，需试听确认，不会自动收藏；原本关闭的声音不会被开启。</p>
+      <div class="station-filters">
+        <label class="station-search-field">筛选 <input id="station-search" type="search" placeholder="名称或频率，例如 93.4" maxlength="60" disabled></label>
+        <label>排序 <select id="station-sort" disabled><option value="frequency">频率</option><option value="signal">候选强度</option></select></label>
+        <label class="station-favorites-filter"><input id="station-only-favorites" type="checkbox" disabled>仅收藏</label>
+      </div>
+      <div class="station-editor">
+        <label class="station-name-field"><span id="station-edit-label">收藏当前频率</span><input id="station-name" type="text" maxlength="60" placeholder="自定义名称（可留空）" disabled></label>
+        <button id="station-save" type="button" disabled>收藏当前频率</button>
+        <button id="station-edit-cancel" type="button" hidden>取消编辑</button>
+      </div>
+      <div id="station-list" class="station-list" aria-label="筛选后的电台目录"></div>
+      <p id="station-memory-note" class="station-note">频率、音量与收藏保存在本机；开机不会自动出声。</p>
+    </details>
+    <p id="message" class="message" role="status">数据仅在本机处理。不把噪声当作装饰动画。</p>
+  </section>
+</body>
+</html>

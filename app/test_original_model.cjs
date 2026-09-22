@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const {TerrainHistory}=require('./original_wallpaper/model.js');
+const frame=(seq,time=seq*.2,freq=99200000,generation=1)=>({sequence:seq,generation,frame:{timestamp:time,frequency_hz:freq,low_hz:freq-1104000,high_hz:freq+1104000,levels:[.1,.3,.6,.2]}});
+const h=new TerrainHistory(48);
+assert.equal(h.ingest(frame(1)),true);assert.equal(h.ingest(frame(1)),false);assert.equal(h.rows.length,1);
+for(let n=2;n<=301;n++)h.ingest(frame(n));
+assert.ok(h.duration<=48);assert.ok(h.rows.length<=256);
+const t=h.latest;assert.equal(h.ingest({sequence:302,frame:{}}),false);assert.equal(h.latest,t);
+assert.equal(h.ingest(frame(302,61,99300000,2)),true);assert.equal(h.rows.length,1);
+h.ingest(frame(303,61.2,99300000,2));assert.equal(h.rows.length,2);
+h.ingest(frame(304,65,99300000,2));assert.equal(h.rows.length,1);
+const bad=frame(305,65.2,99300000,2);bad.frame.levels=[NaN,1];assert.equal(h.ingest(bad),false);assert.equal(h.rows.length,1);
+const restart=frame(1,66,99300000,2);restart.stream_id='new-process';assert.equal(h.ingest(restart),true);assert.equal(h.rows.length,1);
+console.log('Terrain history: duplicate, retention, retune, gap, invalid-frame tests passed.');

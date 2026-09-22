@@ -1,0 +1,14 @@
+{
+  "title": "电波地形 · Invisible Terrain",
+  "description": "原创 SDR 电波地形。左右为频率，纵深为时间，山脊高度为相对信号强度。需要单独运行本机接收助手；支持 RTL-SDR 原生接口及实验性 SoapySDR 接口，可选 FM 单声道收听。没有后台时不生成动态山脊。无附带驱动或外部美术素材。",
+  "file": "index.html",
+  "type": "web",
+  "visibility": "private",
+  "general": {
+    "properties": {
+      "relief": {"type":"slider","value":1.1,"min":0.5,"max":1.8,"step":0.05,"order":0,"text":"山脊尺度（不改变接收灵敏度）"},
+      "dimhud": {"type":"bool","value":false,"order":1,"text":"淡化文字"}
+    },
+    "supportsaudioprocessing": false
+  }
+}
